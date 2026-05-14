@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>Painel Admin</title>
+
+<style>
+
+body{
+
+  font-family: Arial;
+
+  background:#f5f5f5;
+
+  padding:40px;
+
+}
+
+.card{
+
+  background:white;
+
+  padding:20px;
+
+  margin-bottom:20px;
+
+  border-radius:10px;
+
+  box-shadow:0 2px 10px rgba(0,0,0,.1);
+
+}
+
+button{
+
+  padding:10px 20px;
+
+  border:none;
+
+  background:black;
+
+  color:white;
+
+  border-radius:6px;
+
+  cursor:pointer;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>Painel Administrativo</h1>
+
+<h2>Pendentes</h2>
+
+<div id="pendentes"></div>
+
+<h2 style="margin-top:40px;">
+  Confirmados
+</h2>
+
+<div id="confirmados"></div>
+
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+
+import {
+
+  getFirestore,
+  collection,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  doc
+
+} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+
+// FIREBASE CONFIG
+const firebaseConfig = {
+
+  apiKey: "AIzaSyD6Y1rUbrJCm9vOcGM7mliIZBZwGoZXIuc",
+
+  authDomain: "sabrina-estetica.firebaseapp.com",
+
+  projectId: "sabrina-estetica",
+
+  storageBucket: "sabrina-estetica.firebasestorage.app",
+
+  messagingSenderId: "304365384312",
+
+  appId: "1:304365384312:web:206eaebdea7db4ae21f38d",
+
+  measurementId: "G-6JXHRT1766"
+
+};
+
+
+const app = initializeApp(firebaseConfig);
+
+const db = getFirestore(app);
+
+
+const pendentesDiv =
+  document.getElementById('pendentes');
+
+const confirmadosDiv =
+  document.getElementById('confirmados');
+
+
+// CARREGAR
+async function carregarAgendamentos(){
+
+  pendentesDiv.innerHTML = "";
+
+  confirmadosDiv.innerHTML = "";
+
+
+  const querySnapshot =
+    await getDocs(collection(db, "agendamentos"));
+
+
+  querySnapshot.forEach((docSnap)=>{
+
+    const dados = docSnap.data();
+
+    const div = document.createElement('div');
+
+    div.classList.add('card');
+
+
+    // PENDENTES
+    if(dados.status === "pendente"){
+
+      div.innerHTML = `
+
+        <h3>${dados.nome}</h3>
+
+        <p><strong>Data:</strong> ${dados.data}</p>
+
+        <p><strong>Horário:</strong> ${dados.horario}</p>
+
+        <p><strong>Serviço:</strong> ${dados.servico}</p>
+
+        <p style="color:orange;">
+          ⏳ Pendente
+        </p>
+
+        <button onclick="confirmar('${docSnap.id}')">
+
+          Confirmar
+
+        </button>
+
+      `;
+
+      pendentesDiv.appendChild(div);
+
+    }
+
+
+    // CONFIRMADOS
+    if(dados.status === "confirmado"){
+
+      div.innerHTML = `
+
+        <h3>${dados.nome}</h3>
+
+        <p><strong>Data:</strong> ${dados.data}</p>
+
+        <p><strong>Horário:</strong> ${dados.horario}</p>
+
+        <p><strong>Serviço:</strong> ${dados.servico}</p>
+
+        <p style="color:green;">
+          ✅ Confirmado
+        </p>
+
+        <button
+          style="background:red;"
+          onclick="cancelar('${docSnap.id}')">
+
+          Cancelar
+
+        </button>
+
+      `;
+
+      confirmadosDiv.appendChild(div);
+
+    }
+
+  });
+
+}
+
+
+// CONFIRMAR
+window.confirmar = async function(id){
+
+  const ref = doc(db, "agendamentos", id);
+
+  await updateDoc(ref, {
+
+    status: "confirmado"
+
+  });
+
+  alert("Agendamento confirmado!");
+
+  carregarAgendamentos();
+
+}
+
+
+// CANCELAR
+window.cancelar = async function(id){
+
+  const confirmarCancelamento =
+    confirm("Deseja cancelar?");
+
+
+  if(!confirmarCancelamento){
+
+    return;
+
+  }
+
+  await deleteDoc(
+    doc(db, "agendamentos", id)
+  );
+
+  alert("Agendamento cancelado!");
+
+  carregarAgendamentos();
+
+}
+
+
+carregarAgendamentos();
+
+</script>
+
+</body>
+</html>

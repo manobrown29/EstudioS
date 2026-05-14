@@ -174,14 +174,59 @@
 </section>
 
 
-<script>
-  // ELEMENTOS
-  const form = document.getElementById('bookingForm');
-  const dataInput = document.getElementById('data');
-  const horarioSelect = document.getElementById('horario');
+<script type="module">
 
-  // HORÁRIOS DISPONÍVEIS
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+
+import {
+
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where
+
+} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+
+// FIREBASE CONFIG
+const firebaseConfig = {
+
+  apiKey: "SUA_API_KEY",
+
+  authDomain: "sabrina-estetica.firebaseapp.com",
+
+  projectId: "sabrina-estetica",
+
+  storageBucket: "sabrina-estetica.firebasestorage.app",
+
+  messagingSenderId: "304365384312",
+
+  appId: "1:304365384312:web:206eaebdea7db4ae21f38d",
+
+  measurementId: "G-6JXHRT1766"
+
+};
+
+
+// INICIAR FIREBASE
+const app = initializeApp(firebaseConfig);
+
+const db = getFirestore(app);
+
+
+// ELEMENTOS
+const form = document.getElementById('bookingForm');
+
+const dataInput = document.getElementById('data');
+
+const horarioSelect = document.getElementById('horario');
+
+
+// HORÁRIOS
 const horariosDisponiveis = [
+
   '09:00 às 10:00',
   '10:00 às 11:00',
   '11:00 às 12:00',
@@ -191,111 +236,190 @@ const horariosDisponiveis = [
   '16:00 às 17:00',
   '17:00 às 18:00',
   '18:00 às 19:00'
+
 ];
 
-  // HORÁRIOS OCUPADOS
-const horariosOcupados = {
-  '2026-05-10': [
-    '10:00 às 11:00',
-    '14:00 às 15:00'
-  ],
 
-  '2026-05-12': [
-    '09:00 às 10:00',
-    '15:00 às 16:00'
-  ]
-};
+// CARREGAR HORÁRIOS
+async function carregarHorarios(data){
 
-  // QUANDO ESCOLHER UMA DATA
-  dataInput.addEventListener('change', function () {
+  horarioSelect.innerHTML = `
 
-    const dataSelecionada = new Date(this.value);
-    const diaSemana = dataSelecionada.getDay();
+    <option value="" disabled selected>
+      Escolha o horário
+    </option>
 
-    // DOMINGO = 0
-    if (diaSemana === 0) {
+  `;
 
-      alert('Atendemos apenas de segunda a sábado.');
 
-      this.value = '';
+  // BUSCAR CONFIRMADOS
+  const q = query(
 
-      horarioSelect.innerHTML = `
-        <option value="" disabled selected>
-          Escolha o horário
-        </option>
-      `;
+    collection(db, "agendamentos"),
 
-      return;
-    }
+    where("data", "==", data),
 
-    carregarHorarios(this.value);
+    where("status", "==", "confirmado")
+
+  );
+
+
+  const querySnapshot = await getDocs(q);
+
+  const horariosOcupados = [];
+
+
+  querySnapshot.forEach((doc)=>{
+
+    horariosOcupados.push(
+      doc.data().horario
+    );
+
   });
 
-  // CARREGAR HORÁRIOS
-  function carregarHorarios(data) {
 
-    horarioSelect.innerHTML = `
-      <option value="" disabled selected>
-        Escolha o horário
-      </option>
-    `;
+  horariosDisponiveis.forEach((horario)=>{
 
-    const ocupados = horariosOcupados[data] || [];
+    const option =
+      document.createElement('option');
 
-    horariosDisponiveis.forEach(horario => {
+    option.value = horario;
 
-      const option = document.createElement('option');
 
-      option.value = horario;
+    // SE ESTIVER OCUPADO
+    if(horariosOcupados.includes(horario)){
 
-      // VERIFICA SE ESTÁ OCUPADO
-      if (ocupados.includes(horario)) {
+      option.textContent =
+        `${horario} - Indisponível`;
 
-        option.textContent = `${horario} - Indisponível`;
+      option.disabled = true;
 
-        option.disabled = true;
+    }else{
 
-      } else {
+      option.textContent = horario;
 
-        option.textContent = horario;
-      }
+    }
 
-      horarioSelect.appendChild(option);
-    });
+    horarioSelect.appendChild(option);
+
+  });
+
+}
+
+
+// QUANDO ESCOLHER DATA
+dataInput.addEventListener('change', ()=>{
+
+  const dataSelecionada =
+    new Date(dataInput.value);
+
+  const diaSemana =
+    dataSelecionada.getDay();
+
+
+  // DOMINGO
+  if(diaSemana === 0){
+
+    alert(
+      'Atendemos apenas de segunda a sábado.'
+    );
+
+    dataInput.value = '';
+
+    return;
+
   }
 
-  // ENVIAR FORMULÁRIO
-  form.addEventListener('submit', function(e) {
+  carregarHorarios(dataInput.value);
 
-    e.preventDefault();
+});
 
-    // PEGAR DADOS
-    const nome = document.getElementById('nome').value;
-    const data = document.getElementById('data').value;
-    const horario = document.getElementById('horario').value;
-    const servico = document.getElementById('servico').value;
 
-    // MENSAGEM
+// ENVIAR FORMULÁRIO
+form.addEventListener('submit', async function(e){
+
+  e.preventDefault();
+
+  const nome =
+    document.getElementById('nome').value;
+
+  const data =
+    document.getElementById('data').value;
+
+  const horario =
+    document.getElementById('horario').value;
+
+  const servico =
+    document.getElementById('servico').value;
+
+
+  // VALIDAR CAMPOS
+  if(!nome || !data || !horario || !servico){
+
+    alert("Preencha todos os campos.");
+
+    return;
+
+  }
+
+  try {
+
+    // SALVAR FIREBASE
+    await addDoc(collection(db, "agendamentos"), {
+
+      nome,
+      data,
+      horario,
+      servico,
+
+      status: "pendente",
+
+      criadoEm: new Date()
+
+    });
+
+
+    // WHATSAPP
     const mensagem =
-`Olá, Sabrina Tudo bem?
-gostaria de realizar um agendamento.
+`Olá Sabrina, tudo bem?
+
+Gostaria de realizar um agendamento.
 
 Nome: ${nome}
 Data: ${data}
 Horário: ${horario}
 Serviço: ${servico}`;
 
-    // NÚMERO WHATSAPP
-    const numeroWhatsApp = '5511954436397';
 
-    // LINK WHATSAPP
+    const numeroWhatsApp =
+      "5511954436397";
+
+
     const url =
-`https://wa.me/${numeroWhatsApp}?text=${encodeURIComponent(mensagem)}`;
+`https://api.whatsapp.com/send?phone=${numeroWhatsApp}&text=${encodeURIComponent(mensagem)}`;
+
+
+    alert(
+      "Solicitação enviada com sucesso!"
+    );
+
 
     // ABRIR WHATSAPP
-    window.open(url, '_blank');
+    window.location.href = url;
 
-  });
+
+    form.reset();
+
+  } catch (erro) {
+
+    console.error(erro);
+
+    alert("Erro ao enviar agendamento.");
+
+  }
+
+});
+
 </script>
 
 
